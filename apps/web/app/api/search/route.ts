@@ -18,7 +18,7 @@ if (!API_KEY) {
 }
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-async function embedFromImageBytes(bytes: Buffer, mime: string): Promise<{ caption: string; embedding: number[] }> {
+async function captionFromImage(bytes: Buffer, mime: string): Promise<string> {
   const resp = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: [{
@@ -29,26 +29,19 @@ async function embedFromImageBytes(bytes: Buffer, mime: string): Promise<{ capti
       ],
     }],
   });
+  return (resp.text || '').trim();
+}
 
-  const caption = (resp.text || '').trim();
-
+async function embedText(text: string): Promise<number[]> {
   const emb = await ai.models.embedContent({
     model: 'gemini-embedding-001',
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: caption }],
-      },
-    ],
+    contents: [{ role: 'user', parts: [{ text }] }],
   });
-
   const values =
     (emb as any).embedding?.values ??
     (emb as any).embeddings?.[0]?.values ??
     [];
-  const embedding = (values as number[]).map(Number);
-
-  return { caption, embedding };
+  return (values as number[]).map(Number);
 }
 
 export async function POST(req: NextRequest) {
@@ -56,6 +49,9 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const threshold = Number(form.get('threshold') || '0.4');
     const topK = Math.min(Number(form.get('topK') || '30'), 60);
+
+    // allow manual description on retry
+    const manual = (form.get('manual') as string | null)?.trim();
 
     let bytes: Buffer | null = null;
     let mime = 'image/jpeg';
@@ -73,16 +69,40 @@ export async function POST(req: NextRequest) {
       const ct = r.headers.get('content-type') || 'image/jpeg';
       mime = ct.split(';')[0];
       bytes = Buffer.from(await r.arrayBuffer());
-    } else {
-      return NextResponse.json({ error: 'Provide a file or url' }, { status: 400 });
+    } else if (!manual) {
+      return NextResponse.json({ error: 'Provide a file/url or a manual description' }, { status: 400 });
     }
 
-    const { caption, embedding } = await embedFromImageBytes(bytes!, mime);
+    let caption = manual || '';
+    let embedding: number[] = [];
+
+    try {
+      // If no manual caption provided, try model caption first
+      if (!caption) {
+        caption = await captionFromImage(bytes!, mime);
+      }
+      embedding = await embedText(caption);
+    } catch (err: any) {
+      // Graceful fallback on quota/credentials issues
+      const code = err?.status ?? err?.code;
+      const msg = String(err?.message || '');
+      const isQuota = code === 429 || /RESOURCE_EXHAUSTED|quota/i.test(msg);
+      const isADC = /default credentials|ADC/i.test(msg);
+
+      if (!caption && (isQuota || isADC)) {
+        // tell client to show manual-description UI and retry
+        return NextResponse.json(
+          { quotaExceeded: true, error: 'API quota exhausted. Enter a short text description and search again.' },
+          { status: 429 }
+        );
+      }
+      throw err;
+    }
 
     const scored = (products as any[])
-      .map(p => ({ ...p, score: cosine(embedding, p.embedding as number[]) }))
-      .filter(p => p.score >= threshold)
-      .sort((a, b) => b.score - a.score)
+      .map((p: any) => ({ ...p, score: cosine(embedding, p.embedding as number[]) }))
+      .filter((p: any) => p.score >= threshold)
+      .sort((a: any, b: any) => b.score - a.score)
       .slice(0, topK);
 
     return NextResponse.json({ caption, results: scored });

@@ -9,13 +9,22 @@ export default function Page() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function runSearch(fd: FormData): Promise<void> {
+  async function runSearch(fd: FormData) {
     setLoading(true);
     fd.set('threshold', String(threshold));
     const res = await fetch('/api/search', { method: 'POST', body: fd });
     const json = await res.json();
     setLoading(false);
-    if (json.error) { alert(json.error); return; }
+
+    if (json.quotaExceeded) {
+      alert('⚠️ API quota hit. Please type a short description in the Manual Description box and click Search again.');
+      return;
+    }
+    if (json.error) {
+      alert(json.error);
+      return;
+    }
+
     setCaption(json.caption);
     setItems(json.results);
   }

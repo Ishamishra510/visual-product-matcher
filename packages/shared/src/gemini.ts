@@ -22,7 +22,12 @@ export async function describeImageForSearch(bytes: Buffer, mime: string): Promi
       {
         role: 'user',
         parts: [
-          { text: 'Describe this product for visual similarity search in 1-2 sentences. Include brand cues if visible, dominant colors, material, pattern, shape/style, and any notable attributes. Then list 5-8 comma-separated tags.' },
+          {
+            text:
+              'Describe this product for visual similarity search in 1-2 sentences. ' +
+              'Include brand cues if visible, dominant colors, material, pattern, ' +
+              'shape/style, and any notable attributes. Then list 5-8 comma-separated tags.',
+          },
           { inlineData: { data: bytes.toString('base64'), mimeType: mime } },
         ],
       },
@@ -31,12 +36,20 @@ export async function describeImageForSearch(bytes: Buffer, mime: string): Promi
   return (response.text || '').trim();
 }
 
-export async function embedText(text: string, taskType: 'SEMANTIC_SIMILARITY' | 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY' = 'SEMANTIC_SIMILARITY'): Promise<number[]> {
+export async function embedText(text: string): Promise<number[]> {
   const resp = await ai.models.embedContent({
     model: 'gemini-embedding-001',
-    contents: text,
-    taskType,
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text }],
+      },
+    ],
   });
-  const values = (resp as any).embedding?.values || (resp as any).embeddings?.[0]?.values || [];
+
+  const values =
+    (resp as any).embedding?.values ??
+    (resp as any).embeddings?.[0]?.values ??
+    [];
   return (values as number[]).map(Number);
 }

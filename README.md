@@ -1,27 +1,21 @@
-# Visual Product Matcher (Gemini)
+# 🛍️ Visual Product Matcher
 
-Find visually similar products using the Gemini API.
-Algorithm: image ➜ Gemini caption ➜ text embeddings (gemini-embedding-001) ➜ cosine similarity.
+Find visually similar products using **image search** powered by the **Google Gemini API**.  
+This project solves the problem of browsing large product catalogs by letting users upload an image or provide a description to instantly discover similar items.
 
-## Monorepo structure
-```
-visual-product-matcher/
-├─ package.json
-├─ tsconfig.base.json
-├─ .env.example
-├─ data/
-│  └─ products.csv
-├─ packages/
-│  └─ shared/...
-├─ services/
-│  └─ ingest/
-└─ apps/
-   └─ web/
-```
+---
 
-## Local setup
-1. Copy CSV to `data/products.csv`.
-2. `cp .env.example .env` and set `GEMINI_API_KEY`.
-3. `npm i`
-4. `npm run ingest`
-5. `npm run dev` (http://localhost:3000)
+## 📊 Badges
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## 👩‍💻 Author
+- **Isha Mishra** – [GitHub](https://github.com/Ishamishra510)
+
+---
+
+## 📄 License
+This project is licensed under the **MIT License** © 2025 Isha Mishra.
